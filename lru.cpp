@@ -20,7 +20,7 @@ CacheLine* LRUCache::get(uint32_t key){
     auto it = cacheMap[key];// it is a pointer to cacheline ; so *it is cacheline; 
     //int value = it-> data; 
 
-    //cout<<"HIT (value = )"<<value<<") ";
+    cout<<"HIT (value = [DATABLOCK]) ";
 
     items.splice(items.begin(), items, it);
     
@@ -32,7 +32,7 @@ void LRUCache::put(uint32_t key, uint8_t value[64], bool dirty){
 
 
     //update case
-    cout<<"PUT( "<<key<<", "<<value<<"): "; 
+    cout<<"PUT([DATABLOCK]): "; 
     if (cacheMap.find(key)!=cacheMap.end()){
         auto it = cacheMap[key];
         items.splice(items.begin(), items, it);

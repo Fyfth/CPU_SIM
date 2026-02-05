@@ -110,6 +110,11 @@ class setAssociativeCache{//little-endian
 
             //case 1 -> hit in L1 & eviction needed & evict dirty
             //case 2 -> hit in L1 & eviction not needed 
+            if (address % 4 != 0) {
+                cout << "ERROR: Unaligned access! Address " << hex << address << " is not a multiple of 4.\n";
+                return; // Stop. Do not pass Go.
+            
+             }
             if(sets[setIdx].contains(tagValue)){
                 CacheLine* line = sets[setIdx].get(tagValue);
                 
