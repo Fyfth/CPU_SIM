@@ -16,7 +16,7 @@ CacheLine* LRUCache::get(uint32_t key){
 
     }
 
-    //found
+    //foundf
     auto it = cacheMap[key];// it is a pointer to cacheline ; so *it is cacheline; 
     //int value = it-> data; 
 
@@ -46,6 +46,7 @@ void LRUCache::put(uint32_t key, uint8_t value[64], bool dirty){
 
     if (items.size() == capacity){
         //Eviction time -> someone in the set gotta go 
+        cout << "WARNING: Internal eviction triggered in put()! Possible data loss if dirty.\n";
         uint32_t evictKey = items.back().tag; 
         
         bool evictDirty = items.back().dirty; 
@@ -93,6 +94,23 @@ void LRUCache::put(uint32_t key, uint8_t value[64], bool dirty){
         items.pop_back(); 
         cacheMap.erase(key); 
 
+        return victim; 
+    }
+    void LRUCache::remove(int tag){
+        auto mapIt = cacheMap.find(tag); 
+        if(mapIt == cacheMap.end()) return; 
+        auto it = mapIt->second; 
+        cacheMap.erase(mapIt); 
+        items.erase(it); 
+    }
+    
+    CacheLine LRUCache::peek(){
+        if (items.empty()) {
+            uint8_t data[64] = {0};
+        return CacheLine(-1, data, false);
+        }
+        CacheLine victim = items.back();
+    
         return victim; 
     }
 

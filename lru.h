@@ -24,7 +24,7 @@ struct CacheLine{
 };
 
 
-class LRUCache{
+class LRUCache{//operator overload -> doing than just dereferencing; deference still in iterator 
     private: 
     std::list<CacheLine> items; 
     std::unordered_map<uint32_t, std::list<CacheLine>::iterator> cacheMap; 
@@ -39,5 +39,7 @@ class LRUCache{
     int size();
     bool isFull();
     CacheLine eviction();
+    void remove(int tag);
+    CacheLine peek();
 };
 #endif
