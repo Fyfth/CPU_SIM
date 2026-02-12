@@ -28,7 +28,7 @@ CacheLine* LRUCache::get(uint32_t key){
     return &(*it); //this really simplifies but it is an iterator not a pointer so need to deference first
 }
 
-void LRUCache::put(uint32_t key, uint8_t value[64], bool dirty){
+void LRUCache::put(uint32_t key, uint8_t value[64], STATE state){
 
 
     //update case
@@ -37,7 +37,7 @@ void LRUCache::put(uint32_t key, uint8_t value[64], bool dirty){
         auto it = cacheMap[key];
         items.splice(items.begin(), items, it);
         memcpy(it->data, value, 64);
-        it->dirty = true;
+        it->state = MODIFIED;
 
         
         return; 
@@ -49,7 +49,7 @@ void LRUCache::put(uint32_t key, uint8_t value[64], bool dirty){
         cout << "WARNING: Internal eviction triggered in put()! Possible data loss if dirty.\n";
         uint32_t evictKey = items.back().tag; 
         
-        bool evictDirty = items.back().dirty; 
+        STATE evictDirty = items.back().state; 
 
         cout<<"-> Eviciting ("<<evictKey<<" )";
 
@@ -65,7 +65,7 @@ void LRUCache::put(uint32_t key, uint8_t value[64], bool dirty){
 
     cout<<"-> add items to front\n";
 
-    items.push_front(CacheLine(key, value, dirty));
+    items.push_front(CacheLine(key, value, state));
 
     //add to map 
     cacheMap[key]= items.begin();
@@ -87,7 +87,7 @@ void LRUCache::put(uint32_t key, uint8_t value[64], bool dirty){
     CacheLine LRUCache::eviction(){
         if (items.empty()) {
             uint8_t data[64] = {0};
-        return CacheLine(-1, data, false);
+        return CacheLine(-1, data, INVALID);
         }
         CacheLine victim = items.back();
         uint32_t key = victim.tag; 
@@ -107,7 +107,7 @@ void LRUCache::put(uint32_t key, uint8_t value[64], bool dirty){
     CacheLine LRUCache::peek(){
         if (items.empty()) {
             uint8_t data[64] = {0};
-        return CacheLine(-1, data, false);
+        return CacheLine(-1, data, INVALID);
         }
         CacheLine victim = items.back();
     

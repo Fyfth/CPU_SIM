@@ -9,12 +9,20 @@
 #include <iostream>
 #include <list>
 #include <cstring>
+
+enum STATE{
+    INVALID = 0,   // deafult/empty
+    SHARED = 1,    // clean/read-only; s-> broadcast invalidation -> m 
+    EXCLUSIVE = 2, // clean/read-write allowed; e-> m; optimization
+    MODIFIED = 3   // Dirty / Write-Back needed
+};
+
 struct CacheLine{
     uint32_t tag; 
     uint8_t data[64]; //64 bytes per line 
-    bool dirty; 
+    STATE state; 
 
-    CacheLine(uint32_t t = 0, uint8_t* d = nullptr, bool dir = false) : tag(t), dirty(dir) {
+    CacheLine(uint32_t t = 0, uint8_t* d = nullptr, STATE s = INVALID) : tag(t), state(s) {
         if (d != nullptr) {
             memcpy(data, d, 64);
         } else {
@@ -34,7 +42,7 @@ class LRUCache{//operator overload -> doing than just dereferencing; deference s
     public: 
     LRUCache(int cap);           // Just declare, don't implement here
     CacheLine* get(uint32_t key);
-    void put(uint32_t key, uint8_t value[64], bool dirty = false);
+    void put(uint32_t key, uint8_t value[64], STATE s = INVALID);
     bool contains(uint32_t key);
     int size();
     bool isFull();
