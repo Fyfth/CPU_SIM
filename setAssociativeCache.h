@@ -11,7 +11,7 @@
 class bus;
 class setAssociativeCache {
     private: 
-        std::vector<LRUCache> sets; 
+        
         int numSets;
         int bitsOffsets = 6;
         int way;
@@ -25,6 +25,7 @@ class setAssociativeCache {
        
     
     public: 
+        std::vector<LRUCache> sets; 
         // performance counters
         int hits = 0;
         int misses = 0;
@@ -49,13 +50,17 @@ class setAssociativeCache {
         void ramWrite(uint32_t address, uint8_t* data);
         std::vector<uint8_t> ramRead(uint32_t address); 
         void evictIfNeeded(int setIdx); 
-        void writeBlock(uint32_t address, uint8_t* dataptr); 
+        void writeBlock(uint32_t address, uint8_t* dataptr, STATE newState = MODIFIED); 
         void write(uint32_t address, uint32_t data); 
         uint8_t* readBlock(uint32_t address); 
         int read(uint32_t address); 
         void backInvalidate(uint32_t address); 
         std::pair<STATE, uint8_t*> snoop(uint32_t address, int type);
-        void printStats(std::string levelName); 
+        void printStats(std::string levelName);
+        void flushToMe(uint32_t address); 
+        void printCache(std::string levelName); 
+        STATE getState(uint32_t address);
+        void invalidateUp(uint32_t address); 
 }; 
 
 #endif

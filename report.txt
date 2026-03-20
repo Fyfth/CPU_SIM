@@ -1,0 +1,237 @@
+snoop: address=0x100 computed tag=0 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+readBus: snooping core 1 result state=0 dataPtr=NULL
+snoop: address=0x100 computed tag=0 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=100 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 100
+snoop: address=0x100 computed tag=0 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+snoop: address=0x100 computed tag=0 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+CPU Read: deadbeef from 100
+snoop: address=0x200 computed tag=0 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+readBus: snooping core 1 result state=0 dataPtr=NULL
+snoop: address=0x200 computed tag=0 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=200 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 200
+snoop: address=0x200 computed tag=0 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+snoop: address=0x200 computed tag=0 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+snoop: address=0x200 computed tag=0 computed set=8 bitSets=4 bitsOffsets=6 contains=1
+  set 8 contents:   [debug] tag=0 state=E data=cafebabe | 
+readBus: snooping core 0 result state=2 dataPtr=HAS_DATA
+snoop: address=0x200 computed tag=0 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+CPU Read: cafebabe from 200
+snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=0
+  set 12 contents:   [debug] EMPTY
+readBus: snooping core 1 result state=0 dataPtr=NULL
+snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=0
+  set 12 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=300 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 300
+snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=0
+  set 12 contents:   [debug] EMPTY
+snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=0
+  set 12 contents:   [debug] EMPTY
+
+====== CORE 0 cache state: after core0 write 0x11111111 ======
+=== L1 ===
+  [set 0] tag=3 state=M data=11111111 | tag=2 state=S data=cafebabe | tag=1 state=M data=deadbeef | 
+=== L2 ===
+  [set 0] tag=1 state=S data=cafebabe | 
+  [set 4] tag=1 state=E data=11111111 | tag=0 state=E data=deadbeef | 
+=== L3 ===
+  [set 4] tag=0 state=E data=deadbeef | 
+  [set 8] tag=0 state=S data=cafebabe | 
+  [set 12] tag=0 state=E data=11111111 | 
+
+====== CORE 1 cache state: core1 state after core0 write ======
+=== L1 ===
+  [set 0] tag=2 state=E data=cafebabe | 
+=== L2 ===
+  [set 0] tag=1 state=E data=cafebabe | 
+=== L3 ===
+  [set 8] tag=0 state=S data=cafebabe | 
+snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=1
+  set 12 contents:   [debug] tag=0 state=E data=11111111 | 
+readBus: snooping core 0 result state=2 dataPtr=HAS_DATA
+snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=0
+  set 12 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=300 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 300
+snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=1
+  set 12 contents:   [debug] tag=0 state=S data=11111111 | 
+snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=0
+  set 12 contents:   [debug] EMPTY
+
+====== CORE 0 cache state: core0 state after core1 write ======
+=== L1 ===
+  [set 0] tag=3 state=I data=11111111 | tag=2 state=S data=cafebabe | tag=1 state=M data=deadbeef | 
+=== L2 ===
+  [set 0] tag=1 state=S data=cafebabe | 
+  [set 4] tag=1 state=I data=11111111 | tag=0 state=E data=deadbeef | 
+=== L3 ===
+  [set 4] tag=0 state=E data=deadbeef | 
+  [set 8] tag=0 state=S data=cafebabe | 
+  [set 12] tag=0 state=I data=11111111 | 
+
+====== CORE 1 cache state: after core1 write 0x22222222 ======
+=== L1 ===
+  [set 0] tag=3 state=M data=22222222 | tag=2 state=E data=cafebabe | 
+=== L2 ===
+  [set 0] tag=1 state=E data=cafebabe | 
+  [set 4] tag=1 state=E data=22222222 | 
+=== L3 ===
+  [set 8] tag=0 state=S data=cafebabe | 
+  [set 12] tag=0 state=E data=22222222 | 
+snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=1
+  set 12 contents:   [debug] tag=0 state=E data=22222222 | 
+readBus: snooping core 1 result state=2 dataPtr=HAS_DATA
+snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=0
+  set 12 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+CPU Read: 22222222 from 300
+
+====== CORE 0 cache state: core0 state after read ======
+=== L1 ===
+  [set 0] tag=3 state=M data=22222222 | tag=2 state=S data=cafebabe | tag=1 state=M data=deadbeef | 
+=== L2 ===
+  [set 0] tag=1 state=S data=cafebabe | 
+  [set 4] tag=1 state=M data=22222222 | tag=0 state=E data=deadbeef | 
+=== L3 ===
+  [set 4] tag=0 state=E data=deadbeef | 
+  [set 8] tag=0 state=S data=cafebabe | 
+  [set 12] tag=0 state=M data=22222222 | 
+========== CORE 0 ==========
+
+=== L1 Stats ===
+Total accesses:          5
+Hits:                    1
+Misses:                  4
+Hit rate:                20%
+Miss rate:               80%
+Evictions:               0
+Coherence invalidations: 0
+Coherence downgrades:    0
+
+=== L2 Stats ===
+Total accesses:          4
+Hits:                    0
+Misses:                  4
+Hit rate:                0%
+Miss rate:               100%
+Evictions:               0
+Coherence invalidations: 0
+Coherence downgrades:    0
+
+=== L3 Stats ===
+Total accesses:          4
+Hits:                    0
+Misses:                  4
+Hit rate:                0%
+Miss rate:               100%
+Evictions:               0
+Coherence invalidations: 1
+Coherence downgrades:    2
+
+AMAT: 205.6 cycles
+
+=== Coherence Overhead ===
+Invalidations received:  1
+Downgrades received:     2
+Wasted snoops:           0
+Invalidation→Read:       0
+
+========== CORE 1 ==========
+
+=== L1 Stats ===
+Total accesses:          2
+Hits:                    0
+Misses:                  2
+Hit rate:                0%
+Miss rate:               100%
+Evictions:               0
+Coherence invalidations: 0
+Coherence downgrades:    0
+
+=== L2 Stats ===
+Total accesses:          2
+Hits:                    0
+Misses:                  2
+Hit rate:                0%
+Miss rate:               100%
+Evictions:               0
+Coherence invalidations: 0
+Coherence downgrades:    0
+
+=== L3 Stats ===
+Total accesses:          2
+Hits:                    0
+Misses:                  2
+Hit rate:                0%
+Miss rate:               100%
+Evictions:               0
+Coherence invalidations: 0
+Coherence downgrades:    1
+
+AMAT: 256 cycles
+
+=== Coherence Overhead ===
+Invalidations received:  0
+Downgrades received:     1
+Wasted snoops:           6
+Invalidation→Read:       0
+
+========== CORE 2 ==========
+
+=== L1 Stats ===
+Total accesses:          0
+Hits:                    0
+Misses:                  0
+Hit rate:                0%
+Miss rate:               0%
+Evictions:               0
+Coherence invalidations: 0
+Coherence downgrades:    0
+
+=== L2 Stats ===
+Total accesses:          0
+Hits:                    0
+Misses:                  0
+Hit rate:                0%
+Miss rate:               0%
+Evictions:               0
+Coherence invalidations: 0
+Coherence downgrades:    0
+
+=== L3 Stats ===
+Total accesses:          0
+Hits:                    0
+Misses:                  0
+Hit rate:                0%
+Miss rate:               0%
+Evictions:               0
+Coherence invalidations: 0
+Coherence downgrades:    0
+
+AMAT: 4 cycles
+
+=== Coherence Overhead ===
+Invalidations received:  0
+Downgrades received:     0
+Wasted snoops:           10
+Invalidation→Read:       0
+
+=== Bus Stats ===
+Read transactions:  6
+Write transactions: 4

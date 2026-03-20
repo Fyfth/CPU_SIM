@@ -3,11 +3,11 @@ using namespace std;
 
 
 LRUCache::LRUCache(int cap):capacity(cap){
-    cout<<"Created LRU Cache with capacity "<<cap<<"\n\n";
+    //cout<<"Created LRU Cache with capacity "<<cap<<"\n\n";
 }
 
 CacheLine* LRUCache::get(uint32_t key){
-    cout<<"Get("<<key<<"): ";
+    //cout<<"Get("<<key<<"): ";
 
     //not found
     if(cacheMap.find(key)== cacheMap.end()){
@@ -20,7 +20,7 @@ CacheLine* LRUCache::get(uint32_t key){
     auto it = cacheMap[key];// it is a pointer to cacheline ; so *it is cacheline; 
     //int value = it-> data; 
 
-    cout<<"HIT (value = [DATABLOCK]) ";
+    //cout<<"HIT (value = [DATABLOCK]) ";
 
     items.splice(items.begin(), items, it);
     
@@ -32,7 +32,7 @@ void LRUCache::put(uint32_t key, uint8_t value[64], STATE state){
 
 
     //update case
-    cout<<"PUT([DATABLOCK]): "; 
+    //cout<<"PUT([DATABLOCK]): "; 
     if (cacheMap.find(key)!=cacheMap.end()){
         auto it = cacheMap[key];
         items.splice(items.begin(), items, it);
@@ -42,7 +42,7 @@ void LRUCache::put(uint32_t key, uint8_t value[64], STATE state){
         
         return; 
     }
-    cout<<"new key, inserting"; 
+    //cout<<"new key, inserting"; 
 
     if (items.size() == capacity){
         //Eviction time -> someone in the set gotta go 
@@ -51,7 +51,7 @@ void LRUCache::put(uint32_t key, uint8_t value[64], STATE state){
         
         STATE evictDirty = items.back().state; 
 
-        cout<<"-> Eviciting ("<<evictKey<<" )";
+        //cout<<"-> Eviciting ("<<evictKey<<" )";
 
         //kill the node
         items.pop_back();
@@ -63,7 +63,7 @@ void LRUCache::put(uint32_t key, uint8_t value[64], STATE state){
 
     //general case add to front 
 
-    cout<<"-> add items to front\n";
+    //cout<<"-> add items to front\n";
 
     items.push_front(CacheLine(key, value, state));
 

@@ -49,5 +49,30 @@ class LRUCache{//operator overload -> doing than just dereferencing; deference s
     CacheLine eviction();
     void remove(int tag);
     CacheLine peek();
+    void printContents(std::string name){
+    std::cout << "  [" << name << "] ";
+    if(items.empty()){
+        std::cout << "EMPTY\n";
+        return;
+    }
+    for(auto& line : items){
+        std::string stateStr;
+        switch(line.state){
+            case INVALID:   stateStr = "I"; break;
+            case SHARED:    stateStr = "S"; break;
+            case EXCLUSIVE: stateStr = "E"; break;
+            case MODIFIED:  stateStr = "M"; break;
+        }
+        // print first 4 bytes as hex so we can see the data
+        uint32_t val = 0;
+        for(int i = 0; i < 4; i++){
+            val |= ((uint32_t)line.data[i] << (i*8));
+        }
+        std::cout << "tag=" << line.tag 
+                  << " state=" << stateStr 
+                  << " data=" << std::hex << val << std::dec << " | ";
+    }
+    std::cout << "\n";
+}
 };
 #endif

@@ -26,10 +26,13 @@ pair<bool,uint8_t*> bus::readBus(uint32_t address, int core_id){//the bus SHOULD
         totalSnoopsIssued++;
         totalSnoopCycles += BUS_CYCLES; // each snoop cycle costs
         pair<STATE, uint8_t*> snoopResult = listeners[i]->snoop(address,0); 
+        cout << "readBus: snooping core " << i 
+        << " result state=" << snoopResult.first 
+        << " dataPtr=" << (snoopResult.second ? "HAS_DATA" : "NULL") << "\n";
         if (snoopResult.first != INVALID){//Can't return early, first match sure, but every core needs to "downgrade" by calling snoop on itself
             isShared = true; 
         }
-        if(snoopResult.first == MODIFIED){
+        if(snoopResult.first == MODIFIED||snoopResult.first == EXCLUSIVE){
             dataPtr = snoopResult.second; 
         }
     }

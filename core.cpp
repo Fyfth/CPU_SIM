@@ -13,7 +13,32 @@
 using namespace std;
 
 void Core::write(uint32_t address, uint32_t data){
+    STATE currentState = INVALID;
+    if(L1->contains(address)){
+        currentState = L1->getState(address);
+    }
+    else if(L2->contains(address)){
+        currentState = L2->getState(address);
+    }
+    else if(L3->contains(address)){
+        currentState = L3->getState(address);
+    }
+    
+    // step 1: bring data in first (readBlock inside write())
     L1->write(address, data);
+    
+    // step 2: THEN invalidate others
+    // but only if we didn't already own it exclusively
+    if(currentState != MODIFIED){
+        b->writeBus(address, core_id);
+    }
+    
+    // STEP 3: push to L2/L3 for inclusive design
+    CacheLine* l1Line = L1->sets[L1->set(address)].get(L1->tag(address));
+    if(l1Line != nullptr){
+        L2->writeBlock(address, l1Line->data, EXCLUSIVE);
+        L3->writeBlock(address, l1Line->data, EXCLUSIVE);
+    }
 }
 
 int Core::read(uint32_t address){
@@ -58,6 +83,7 @@ float Core::calculateAMAT(){
     return amat;
 }
 
+
 int main(){
     bus* b = new bus();
     
@@ -82,8 +108,13 @@ int main(){
     // test 3: write contention
     // core0 and core1 both write same address
     core0->write(0x300, 0x11111111);
+    core0->printAllCaches("after core0 write 0x11111111");
+    core1->printAllCaches("core1 state after core0 write");
     core1->write(0x300, 0x22222222);
+    core0->printAllCaches("core0 state after core1 write");  // ← key one
+    core1->printAllCaches("after core1 write 0x22222222");
     core0->read(0x300);  // should get 0x22222222
+    core0->printAllCaches("core0 state after read");
 
     // print stats
     core0->printStats();

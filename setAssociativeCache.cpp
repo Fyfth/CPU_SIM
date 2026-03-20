@@ -109,17 +109,17 @@ void setAssociativeCache::evictIfNeeded(int set){
     }
 }
 
-void setAssociativeCache::writeBlock(uint32_t address, uint8_t* dataptr){
+void setAssociativeCache::writeBlock(uint32_t address, uint8_t* dataptr, STATE newState){
     int setIdx = set(address);
     int tagValue = tag(address);
 
     if(sets[setIdx].contains(tagValue)){
         CacheLine* line = sets[setIdx].get(tagValue);
         memcpy(line->data, dataptr, 64);
-        line->state = MODIFIED; 
+        line->state = newState; 
     }else{//miss, add, and update
         evictIfNeeded(setIdx); 
-        sets[setIdx].put(tagValue, dataptr, MODIFIED);
+        sets[setIdx].put(tagValue, dataptr, newState);
     }
 
 }
@@ -138,12 +138,13 @@ void setAssociativeCache::write (uint32_t address, uint32_t data){// I always wr
     //only L1 should call this; recursively brings cache line up 
     readBlock(address);
     CacheLine* line = sets[setIdx].get(tagValue);
-    if(line->state == SHARED && busPtr !=nullptr){
-        busPtr->writeBus(address, core_id); 
-    }
+    // if(line->state != MODIFIED && busPtr !=nullptr){
+    //     busPtr->writeBus(address, core_id); 
+    // }
 
     
-
+    cout << "write: address=" << hex << address 
+     << " line state before write=" << line->state << "\n";
     if(sets[setIdx].contains(tagValue)){      
         //unpacketize
         for(int i =0; i<4; i++){
@@ -159,21 +160,27 @@ uint8_t* setAssociativeCache::readBlock (uint32_t address){//fetch the block to 
     int tagValue = tag(address); 
     int setIdx = set(address); 
 
-    if(sets[setIdx].contains(tagValue)){//hit
-        hits++;
-        if(prevLevel == nullptr) totalCycles += L1_HIT_CYCLES;
-        else if(nextLevel == nullptr) totalCycles += L3_HIT_CYCLES;
-        else totalCycles += L2_HIT_CYCLES;
+    if(sets[setIdx].contains(tagValue)){
+        CacheLine* line = sets[setIdx].get(tagValue);
+        
+        if(line->state == INVALID){
+            misses++;  // INVALID = treat as miss, fall through to fetch
+        } else {
+            // real hit
+            hits++;
+            if(prevLevel == nullptr)       totalCycles += L1_HIT_CYCLES;
+            else if(nextLevel == nullptr)  totalCycles += L3_HIT_CYCLES;
+            else                           totalCycles += L2_HIT_CYCLES;
 
-        // track invalidation → read pattern
-        if(wasRecentlyInvalidated){
-            invalidationToRead++;
-            wasRecentlyInvalidated = false;
+            if(wasRecentlyInvalidated){
+                invalidationToRead++;
+                wasRecentlyInvalidated = false;
+            }
+            return line->data;
         }
-        CacheLine* line = sets[setIdx].get(tagValue); 
-        return line->data; 
+    } else {
+        misses++;
     }
-    misses++;
 
     vector<uint8_t> fetchedData(64); 
     STATE initState = EXCLUSIVE; 
@@ -183,6 +190,7 @@ uint8_t* setAssociativeCache::readBlock (uint32_t address){//fetch the block to 
 
     }else{//I am L3, look for ram or snoop other cores 
         //if snoop returns dirty get it, else go to ram 
+        
        
         auto[isShared,dataPtr] = busPtr->readBus(address, core_id);
         if(dataPtr !=nullptr){
@@ -239,14 +247,26 @@ pair<STATE, uint8_t*> setAssociativeCache::snoop(uint32_t address, int type){// 
     //assume only L3 calls this -> inclusive writeback
     int tagValue = tag(address); 
     int setIdx = set(address); 
+    cout << "snoop: address=0x" << hex << address 
+         << " computed tag=" << tagValue 
+         << " computed set=" << setIdx 
+         << " bitSets=" << bitSets
+         << " bitsOffsets=" << bitsOffsets
+         << " contains=" << sets[setIdx].contains(tagValue) 
+         << dec << "\n";
+    
+    // print what's actually in that set
+    cout << "  set " << setIdx << " contents: ";
+    sets[setIdx].printContents("debug");
 
     if(!sets[setIdx].contains(tagValue)){//check first 
+        wastedSnoops++;
         return {INVALID, nullptr}; 
     }
     CacheLine* line = sets[setIdx].get(tagValue);//fresh grab
     STATE original_state = line->state;
     uint8_t* data_flush = nullptr; 
-    backInvalidate(address); //pass down 
+    flushToMe(address); //pass down 
     line = sets[setIdx].get(tagValue);
 
     if(type ==0){//read --> snoop to "share state" 
@@ -258,6 +278,8 @@ pair<STATE, uint8_t*> setAssociativeCache::snoop(uint32_t address, int type){// 
                 ramWrite(address, data_flush); // RAM GETS A COPY TOO!!!!!!!
             } else if (original_state == EXCLUSIVE) {
                 coherenceDowngrades++;
+                data_flush = new uint8_t[64];
+                memcpy(data_flush, line->data, 64);
                 line->state = SHARED; // Downgrade (no intercept needed, Read from Ram is fine)
             }else if(original_state == SHARED){
                 // do nothing, RAM up to date, no data change needed 
@@ -265,10 +287,6 @@ pair<STATE, uint8_t*> setAssociativeCache::snoop(uint32_t address, int type){// 
         }
     
     else{//write -> shared state wants to write -> must invalidate all other cores
-        if(original_state == INVALID){
-            wastedSnoops++; // we were snooped but had nothing
-            return {INVALID, nullptr};
-        }
         if(original_state ==MODIFIED){
             coherenceInvalidations++;
             data_flush = new uint8_t[64];
@@ -276,11 +294,30 @@ pair<STATE, uint8_t*> setAssociativeCache::snoop(uint32_t address, int type){// 
             ramWrite(address, data_flush);
         }
         line->state = INVALID;
+        if(prevLevel != nullptr){
+            prevLevel->invalidateUp(address);
+        }
         coherenceInvalidations++;
         wasRecentlyInvalidated = true; // flag for next read
 
     }
     return {original_state, data_flush};
+}
+void setAssociativeCache::flushToMe(uint32_t address){
+    int tagValue = tag(address); 
+    int setIdx = set(address); 
+
+    if(prevLevel != nullptr){
+        prevLevel->flushToMe(address); 
+    }
+
+    if(sets[setIdx].contains(tagValue)){
+        CacheLine* line = sets[setIdx].get(tagValue); 
+        if(line->state ==MODIFIED && nextLevel != nullptr){
+            nextLevel->writeBlock(address, line->data); 
+            line->state = SHARED; 
+        }
+    }
 }
 void setAssociativeCache::setBus(bus* b, int id){
     busPtr = b;
@@ -301,6 +338,37 @@ void setAssociativeCache::printStats(std::string levelName){//chatgpt
     cout << "Coherence invalidations: " << coherenceInvalidations << "\n";
     cout << "Coherence downgrades:    " << coherenceDowngrades << "\n";
     cout << "\n";
+}
+
+void setAssociativeCache::printCache(std::string levelName){
+    std::cout << "=== " << levelName << " ===\n";
+    for(int i = 0; i < numSets; i++){
+        if(sets[i].size() > 0){  // only print non-empty sets
+            sets[i].printContents("set " + std::to_string(i));
+        }
+    }
+}
+STATE setAssociativeCache::getState(uint32_t address){
+    int tagValue = tag(address);
+    int setIdx = set(address);
+    if(sets[setIdx].contains(tagValue)){
+        return sets[setIdx].get(tagValue)->state;
+    }
+    return INVALID;
+}
+void setAssociativeCache::invalidateUp(uint32_t address){
+    int tagValue = tag(address);
+    int setIdx = set(address);
+    
+    // go to L1 first
+    if(prevLevel != nullptr){
+        prevLevel->invalidateUp(address);
+    }
+    
+    // just invalidate, dirty data already handled by flushToMe
+    if(sets[setIdx].contains(tagValue)){
+        sets[setIdx].get(tagValue)->state = INVALID;
+    }
 }
 
 
