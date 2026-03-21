@@ -202,6 +202,67 @@ int main(){
     cout << (r10c == (int)0x33333333 ? "PASS" : "FAIL")
          << " expected=33333333 got=" << hex << r10c << "\n";
 
+    cout << "\n========== TEST 11: Eviction ==========\n";
+    // hammer set 0 of L1 with 5 addresses (4-way, so 5th triggers eviction)
+    // these all map to set 0: 0x000, 0x100, 0x200, 0x300, 0x400
+    core0->write(0x000, 0x00000001);
+    core0->write(0x100, 0x00000002);
+    core0->write(0x200, 0x00000003);
+    core0->write(0x300, 0x00000004);
+    // L1 set 0 is now full (4 ways)
+
+    core0->write(0x400, 0x00000005);
+    // this should evict 0x000 (LRU) from L1
+    // 0x000 is dirty (MODIFIED) so should writeback to L2
+
+    // now read 0x000 — should miss L1, hit L2
+    int r11 = core0->read(0x000);
+    cout << (r11 == 0x00000001 ? "PASS" : "FAIL")
+        << " evicted line readable from L2, expected=1 got=" << hex << r11 << "\n";
+
+    // and 0x400 should still be in L1
+    int r11b = core0->read(0x400);
+    cout << (r11b == 0x00000005 ? "PASS" : "FAIL")
+     << " newest line still in L1, expected=5 got=" << hex << r11b << "\n";
+    
+    cout << "\n========== TEST 12: Eviction + Cross-Core Snoop ==========\n";
+    // core0 fills L1 set 0 completely
+    core0->write(0x000, 0xAAAA0001);
+    core0->write(0x100, 0xAAAA0002);
+    core0->write(0x200, 0xAAAA0003);
+    core0->write(0x300, 0xAAAA0004);
+    // L1 set 0 full — 0x000 is LRU
+
+    // core1 reads 0x000 BEFORE eviction
+    // core0 has it MODIFIED in L1
+    // snoop should pull fresh data from core0
+    int r12a = core1->read(0x000);
+    cout << (r12a == (int)0xAAAA0001 ? "PASS" : "FAIL")
+        << " core1 read before eviction, expected=aaaa0001 got=" << hex << r12a << "\n";
+
+    // now core0 writes 0x400 → triggers eviction of 0x000 from L1
+    // 0x000 is now SHARED (core1 has it) so writeback goes to L2
+    core0->write(0x400, 0xAAAA0005);
+
+    // core1 should still have correct value for 0x000
+    int r12b = core1->read(0x000);
+    cout << (r12b == (int)0xAAAA0001 ? "PASS" : "FAIL")
+        << " core1 still correct after core0 eviction, expected=aaaa0001 got=" << hex << r12b << "\n";
+
+    // now core0 writes NEW value to 0x000
+    // this should invalidate core1's copy
+    core0->write(0x000, 0xBBBB0001);
+
+    // core1 reads 0x000 — should get new value
+    int r12c = core1->read(0x000);
+    cout << (r12c == (int)0xBBBB0001 ? "PASS" : "FAIL")
+        << " core1 sees updated value after invalidation, expected=bbbb0001 got=" << hex << r12c << "\n";
+
+    // core0 reads back its own write
+    int r12d = core0->read(0x000);
+    cout << (r12d == (int)0xBBBB0001 ? "PASS" : "FAIL")
+        << " core0 reads own write, expected=bbbb0001 got=" << hex << r12d << "\n";
+
     cout << "\n========== STATS ==========\n";
     core0->printStats();
     core1->printStats();

@@ -26,9 +26,10 @@ pair<bool,uint8_t*> bus::readBus(uint32_t address, int core_id){//the bus SHOULD
         totalSnoopsIssued++;
         totalSnoopCycles += BUS_CYCLES; // each snoop cycle costs
         pair<STATE, uint8_t*> snoopResult = listeners[i]->snoop(address,0); 
-        cout << "readBus: snooping core " << i 
-        << " result state=" << snoopResult.first 
-        << " dataPtr=" << (snoopResult.second ? "HAS_DATA" : "NULL") << "\n";
+        
+        if(snoopResult.first == INVALID){
+            wastedSnoops++;  //did not have tag
+        }
         if (snoopResult.first != INVALID){//Can't return early, first match sure, but every core needs to "downgrade" by calling snoop on itself
             isShared = true; 
         }
@@ -45,11 +46,17 @@ void bus::writeBus(uint32_t address, int core_id){
         if(i == core_id){
             continue; 
         }
-        listeners[i]->snoop(address,1); 
+        totalSnoopsIssued++;
+        totalSnoopCycles += BUS_CYCLES;
+        auto result = listeners[i]->snoop(address,1);
+        if(result.first == INVALID){
+            wastedSnoops++;
+        }
     }
 }
 
 void bus::printStats(){
+    cout << dec;
     cout << "========== BUS Stats ==========\n";
     cout << "Read transactions:   " << readTransactions  << "\n";
     cout << "Write transactions:  " << writeTransactions << "\n";
@@ -62,11 +69,11 @@ void bus::printStats(){
     }
     cout << "Wasted snoop ratio:  ";
     // sum wasted snoops across all listeners
-    int totalWasted = 0;
-    for(auto l : listeners) totalWasted += l->wastedSnoops;
+    cout << "Wasted snoops:       " << wastedSnoops << "\n";
     if(totalSnoopsIssued > 0){
-        cout << (float)totalWasted/totalSnoopsIssued * 100 << "%\n";
+        cout << "Wasted snoop ratio:  " 
+             << (float)wastedSnoops/totalSnoopsIssued * 100 
+             << "%\n";
     }
-    cout << "\n";
 }
 

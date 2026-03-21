@@ -24,6 +24,7 @@ class bus{
         int readTransactions = 0;
         int writeTransactions = 0;
         int totalSnoopsIssued = 0;
+        int wastedSnoops = 0;
 }; 
 
 

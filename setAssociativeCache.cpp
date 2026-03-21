@@ -328,6 +328,7 @@ void setAssociativeCache::printStats(std::string levelName){//chatgpt
     float hitRate = total > 0 ? (float)hits/total * 100.0f : 0;
     float missRate = total > 0 ? (float)misses/total * 100.0f : 0;
     
+    cout << dec;
     cout << "=== " << levelName << " Stats ===\n";
     cout << "Total accesses:          " << total << "\n";
     cout << "Hits:                    " << hits << "\n";
