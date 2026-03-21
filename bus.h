@@ -14,9 +14,10 @@ class setAssociativeCache;
 class bus{
     private: 
         //this is a vector of setAssociativeCache pointers 
-        std::vector<setAssociativeCache*> listeners; //all L3's
+        
     public: 
         void addListener(setAssociativeCache* L3);
+        std::vector<setAssociativeCache*> listeners; //all L3's
         std::pair<bool, uint8_t*> readBus(uint32_t address, int core_id);
         void writeBus(uint32_t address, int core_id);
         void printStats();

@@ -52,10 +52,14 @@ bool setAssociativeCache::contains(uint32_t address){
 }
 
 void setAssociativeCache::ramWrite(uint32_t address, uint8_t* data){
+    uint32_t val = 0;
+    for(int i = 0; i < 4; i++) val |= ((uint32_t)data[i] << (i*8));
+    cout << "ramWrite: addr=0x" << hex << address 
+         << " val=0x" << val << dec << "\n";
     for (int i = 0; i < 64; i++) {
         RAM[address + i] = data[i];
     }
-    cout << "Snoop intercepted Modified snoopRead; line to RAM\n";
+    //cout << "Snoop intercepted Modified snoopRead; line to RAM\n";
 }
 
 
@@ -70,6 +74,11 @@ std::vector<uint8_t> setAssociativeCache::ramRead(uint32_t address){
             blockData[i] = 0;
         }
     }
+    // debug — print what RAM has at this address
+    uint32_t val = 0;
+    for(int i = 0; i < 4; i++) val |= ((uint32_t)blockData[i] << (i*8));
+    cout << "ramRead: addr=0x" << hex << blockStart 
+         << " val=0x" << val << dec << "\n";
     return blockData;
 }
 
@@ -94,7 +103,7 @@ void setAssociativeCache::evictIfNeeded(int set){
         if(nextLevel != nullptr){
             if(victim->state == MODIFIED){
                 nextLevel->writeBlock(victimAddress, victim->data); 
-                cout << "Evicting dirty line to Next Level\n";
+                //cout << "Evicting dirty line to Next Level\n";
             }
         }else{
             // L3 to RAM
@@ -102,8 +111,13 @@ void setAssociativeCache::evictIfNeeded(int set){
                 for (int i = 0; i < 64; i++) {
                     RAM[victimAddress + i] = victim->data[i];
                 }
-                cout << "Evicting dirty line to RAM\n";
+                //cout << "Evicting dirty line to RAM\n";
+                cout << "→ wrote to RAM\n";
+            }else{
+                cout << "→ NOT written to RAM (state not MODIFIED)\n";
             }
+            
+            
         }
         sets[set].remove(victimTag);
     }
@@ -143,8 +157,8 @@ void setAssociativeCache::write (uint32_t address, uint32_t data){// I always wr
     // }
 
     
-    cout << "write: address=" << hex << address 
-     << " line state before write=" << line->state << "\n";
+    // cout << "write: address=" << hex << address 
+    //  << " line state before write=" << line->state << "\n";
     if(sets[setIdx].contains(tagValue)){      
         //unpacketize
         for(int i =0; i<4; i++){
@@ -152,7 +166,7 @@ void setAssociativeCache::write (uint32_t address, uint32_t data){// I always wr
             line->data[i+offsetId] =  (data >> (i * 8)) & 0xFF; //modifies in place
         }
         line->state =MODIFIED; 
-        cout<<"L1 HIT: Wrote 64 bytes data "<<" to address "<<address<<"\n";
+        //cout<<"L1 HIT: Wrote 64 bytes data "<<" to address "<<address<<"\n";
     }
 }
 
@@ -217,7 +231,7 @@ int setAssociativeCache::read (uint32_t address){ //read the offset
     for(int i =0; i<4; i++){
         data |= ((block[offsetId+i])<<i*8); 
     }
-    cout << "CPU Read: " << hex << data << " from " << address << dec << "\n";
+    //cout << "CPU Read: " << hex << data << " from " << address << dec << "\n";
     return data;            
 
 }
@@ -247,17 +261,17 @@ pair<STATE, uint8_t*> setAssociativeCache::snoop(uint32_t address, int type){// 
     //assume only L3 calls this -> inclusive writeback
     int tagValue = tag(address); 
     int setIdx = set(address); 
-    cout << "snoop: address=0x" << hex << address 
-         << " computed tag=" << tagValue 
-         << " computed set=" << setIdx 
-         << " bitSets=" << bitSets
-         << " bitsOffsets=" << bitsOffsets
-         << " contains=" << sets[setIdx].contains(tagValue) 
-         << dec << "\n";
+    // cout << "snoop: address=0x" << hex << address 
+    //      << " computed tag=" << tagValue 
+    //      << " computed set=" << setIdx 
+    //      << " bitSets=" << bitSets
+    //      << " bitsOffsets=" << bitsOffsets
+    //      << " contains=" << sets[setIdx].contains(tagValue) 
+    //      << dec << "\n";
     
     // print what's actually in that set
-    cout << "  set " << setIdx << " contents: ";
-    sets[setIdx].printContents("debug");
+    // cout << "  set " << setIdx << " contents: ";
+    //sets[setIdx].printContents("debug");
 
     if(!sets[setIdx].contains(tagValue)){//check first 
         wastedSnoops++;
@@ -287,7 +301,7 @@ pair<STATE, uint8_t*> setAssociativeCache::snoop(uint32_t address, int type){// 
         }
     
     else{//write -> shared state wants to write -> must invalidate all other cores
-        if(original_state ==MODIFIED){
+        if(line->state ==MODIFIED){
             coherenceInvalidations++;
             data_flush = new uint8_t[64];
             memcpy(data_flush, line->data, 64); //save and return 
@@ -304,18 +318,28 @@ pair<STATE, uint8_t*> setAssociativeCache::snoop(uint32_t address, int type){// 
     return {original_state, data_flush};
 }
 void setAssociativeCache::flushToMe(uint32_t address){
-    int tagValue = tag(address); 
-    int setIdx = set(address); 
+    int tagValue = tag(address);
+    int setIdx   = set(address);
 
     if(prevLevel != nullptr){
-        prevLevel->flushToMe(address); 
+        prevLevel->flushToMe(address);
     }
 
     if(sets[setIdx].contains(tagValue)){
-        CacheLine* line = sets[setIdx].get(tagValue); 
-        if(line->state ==MODIFIED && nextLevel != nullptr){
-            nextLevel->writeBlock(address, line->data); 
-            line->state = SHARED; 
+        CacheLine* line = sets[setIdx].get(tagValue);
+        cout << "invalidateUp: level=" 
+             << (prevLevel == nullptr ? "L1" : nextLevel == nullptr ? "L3" : "L2")
+             << " addr=0x" << hex << address
+             << " state=" << line->state << dec << "\n";
+        if(line->state == MODIFIED){
+            if(nextLevel != nullptr){
+                nextLevel->writeBlock(address, line->data);
+                line->state = SHARED;
+            } else {
+                // I am L3 — write to RAM
+                ramWrite(address, line->data);
+                line->state = SHARED;
+            }
         }
     }
 }
@@ -329,7 +353,7 @@ void setAssociativeCache::printStats(std::string levelName){//chatgpt
     float missRate = total > 0 ? (float)misses/total * 100.0f : 0;
     
     cout << dec;
-    cout << "=== " << levelName << " Stats ===\n";
+    cout << "*** " << levelName << " Stats ***\n";
     cout << "Total accesses:          " << total << "\n";
     cout << "Hits:                    " << hits << "\n";
     cout << "Misses:                  " << misses << "\n";
@@ -342,7 +366,7 @@ void setAssociativeCache::printStats(std::string levelName){//chatgpt
 }
 
 void setAssociativeCache::printCache(std::string levelName){
-    std::cout << "=== " << levelName << " ===\n";
+    std::cout << "*** " << levelName << " ***\n";
     for(int i = 0; i < numSets; i++){
         if(sets[i].size() > 0){  // only print non-empty sets
             sets[i].printContents("set " + std::to_string(i));
