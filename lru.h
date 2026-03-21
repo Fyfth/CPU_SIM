@@ -37,7 +37,7 @@ class LRUCache{//operator overload -> doing than just dereferencing; deference s
     std::list<CacheLine> items; 
     std::unordered_map<uint32_t, std::list<CacheLine>::iterator> cacheMap; 
     int capacity;
-    //void printCache();
+    
 
     public: 
     LRUCache(int cap);           // Just declare, don't implement here

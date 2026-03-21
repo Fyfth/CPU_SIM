@@ -1,3 +1,5 @@
+
+========== TEST 1: Basic Read/Write ==========
 snoop: address=0x100 computed tag=0 computed set=4 bitSets=4 bitsOffsets=6 contains=0
   set 4 contents:   [debug] EMPTY
 readBus: snooping core 1 result state=0 dataPtr=NULL
@@ -11,6 +13,15 @@ snoop: address=0x100 computed tag=0 computed set=4 bitSets=4 bitsOffsets=6 conta
 snoop: address=0x100 computed tag=0 computed set=4 bitSets=4 bitsOffsets=6 contains=0
   set 4 contents:   [debug] EMPTY
 CPU Read: deadbeef from 100
+PASS expected=deadbeef got=deadbeef
+
+========== TEST 2: Same Core Write Twice ==========
+write: address=100 line state before write=3
+L1 HIT: Wrote 64 bytes data  to address 100
+CPU Read: 11111111 from 100
+PASS expected=11111111 got=11111111
+
+========== TEST 3: Cross-Core Read ==========
 snoop: address=0x200 computed tag=0 computed set=8 bitSets=4 bitsOffsets=6 contains=0
   set 8 contents:   [debug] EMPTY
 readBus: snooping core 1 result state=0 dataPtr=NULL
@@ -30,6 +41,9 @@ snoop: address=0x200 computed tag=0 computed set=8 bitSets=4 bitsOffsets=6 conta
   set 8 contents:   [debug] EMPTY
 readBus: snooping core 2 result state=0 dataPtr=NULL
 CPU Read: cafebabe from 200
+PASS expected=cafebabe got=cafebabe
+
+========== TEST 4: Write Contention ==========
 snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=0
   set 12 contents:   [debug] EMPTY
 readBus: snooping core 1 result state=0 dataPtr=NULL
@@ -42,25 +56,6 @@ snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 conta
   set 12 contents:   [debug] EMPTY
 snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=0
   set 12 contents:   [debug] EMPTY
-
-====== CORE 0 cache state: after core0 write 0x11111111 ======
-=== L1 ===
-  [set 0] tag=3 state=M data=11111111 | tag=2 state=S data=cafebabe | tag=1 state=M data=deadbeef | 
-=== L2 ===
-  [set 0] tag=1 state=S data=cafebabe | 
-  [set 4] tag=1 state=E data=11111111 | tag=0 state=E data=deadbeef | 
-=== L3 ===
-  [set 4] tag=0 state=E data=deadbeef | 
-  [set 8] tag=0 state=S data=cafebabe | 
-  [set 12] tag=0 state=E data=11111111 | 
-
-====== CORE 1 cache state: core1 state after core0 write ======
-=== L1 ===
-  [set 0] tag=2 state=E data=cafebabe | 
-=== L2 ===
-  [set 0] tag=1 state=E data=cafebabe | 
-=== L3 ===
-  [set 8] tag=0 state=S data=cafebabe | 
 snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=1
   set 12 contents:   [debug] tag=0 state=E data=11111111 | 
 readBus: snooping core 0 result state=2 dataPtr=HAS_DATA
@@ -73,27 +68,6 @@ snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 conta
   set 12 contents:   [debug] tag=0 state=S data=11111111 | 
 snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=0
   set 12 contents:   [debug] EMPTY
-
-====== CORE 0 cache state: core0 state after core1 write ======
-=== L1 ===
-  [set 0] tag=3 state=I data=11111111 | tag=2 state=S data=cafebabe | tag=1 state=M data=deadbeef | 
-=== L2 ===
-  [set 0] tag=1 state=S data=cafebabe | 
-  [set 4] tag=1 state=I data=11111111 | tag=0 state=E data=deadbeef | 
-=== L3 ===
-  [set 4] tag=0 state=E data=deadbeef | 
-  [set 8] tag=0 state=S data=cafebabe | 
-  [set 12] tag=0 state=I data=11111111 | 
-
-====== CORE 1 cache state: after core1 write 0x22222222 ======
-=== L1 ===
-  [set 0] tag=3 state=M data=22222222 | tag=2 state=E data=cafebabe | 
-=== L2 ===
-  [set 0] tag=1 state=E data=cafebabe | 
-  [set 4] tag=1 state=E data=22222222 | 
-=== L3 ===
-  [set 8] tag=0 state=S data=cafebabe | 
-  [set 12] tag=0 state=E data=22222222 | 
 snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 contains=1
   set 12 contents:   [debug] tag=0 state=E data=22222222 | 
 readBus: snooping core 1 result state=2 dataPtr=HAS_DATA
@@ -101,33 +75,279 @@ snoop: address=0x300 computed tag=0 computed set=c bitSets=4 bitsOffsets=6 conta
   set 12 contents:   [debug] EMPTY
 readBus: snooping core 2 result state=0 dataPtr=NULL
 CPU Read: 22222222 from 300
+PASS expected=22222222 got=22222222
 
-====== CORE 0 cache state: core0 state after read ======
-=== L1 ===
-  [set 0] tag=3 state=M data=22222222 | tag=2 state=S data=cafebabe | tag=1 state=M data=deadbeef | 
-=== L2 ===
-  [set 0] tag=1 state=S data=cafebabe | 
-  [set 4] tag=1 state=M data=22222222 | tag=0 state=E data=deadbeef | 
-=== L3 ===
-  [set 4] tag=0 state=E data=deadbeef | 
-  [set 8] tag=0 state=S data=cafebabe | 
-  [set 12] tag=0 state=M data=22222222 | 
+========== TEST 5: Three Core Contention ==========
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] EMPTY
+readBus: snooping core 1 result state=0 dataPtr=NULL
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=400 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 400
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] EMPTY
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] EMPTY
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=1 state=E data=aaaaaaaa | 
+readBus: snooping core 0 result state=2 dataPtr=HAS_DATA
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=400 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 400
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=1 state=S data=aaaaaaaa | 
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] EMPTY
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=1 state=I data=aaaaaaaa | 
+readBus: snooping core 0 result state=0 dataPtr=NULL
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=1 state=E data=bbbbbbbb | 
+readBus: snooping core 1 result state=2 dataPtr=HAS_DATA
+write: address=400 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 400
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=1 state=I data=aaaaaaaa | 
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=1 state=S data=bbbbbbbb | 
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=1 state=I data=bbbbbbbb | 
+readBus: snooping core 1 result state=0 dataPtr=NULL
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=1 state=E data=cccccccc | 
+readBus: snooping core 2 result state=2 dataPtr=HAS_DATA
+Evicting dirty line to Next Level
+CPU Read: cccccccc from 400
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=1 state=M data=cccccccc | 
+Snoop intercepted Modified snoopRead; line to RAM
+readBus: snooping core 0 result state=3 dataPtr=HAS_DATA
+snoop: address=0x400 computed tag=1 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=1 state=S data=cccccccc | 
+readBus: snooping core 2 result state=1 dataPtr=NULL
+CPU Read: cccccccc from 400
+CPU Read: cccccccc from 400
+PASS core0 expected=cccccccc got=cccccccc
+PASS core1 expected=cccccccc got=cccccccc
+PASS core2 expected=cccccccc got=cccccccc
+
+========== TEST 6: False Sharing ==========
+snoop: address=0x500 computed tag=1 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+readBus: snooping core 1 result state=0 dataPtr=NULL
+snoop: address=0x500 computed tag=1 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=500 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 500
+snoop: address=0x500 computed tag=1 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+snoop: address=0x500 computed tag=1 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+snoop: address=0x504 computed tag=1 computed set=4 bitSets=4 bitsOffsets=6 contains=1
+  set 4 contents:   [debug] tag=1 state=E data=aaaaaaaa | tag=0 state=E data=11111111 | 
+readBus: snooping core 0 result state=2 dataPtr=HAS_DATA
+snoop: address=0x504 computed tag=1 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=504 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 504
+snoop: address=0x504 computed tag=1 computed set=4 bitSets=4 bitsOffsets=6 contains=1
+  set 4 contents:   [debug] tag=1 state=S data=aaaaaaaa | tag=0 state=E data=11111111 | 
+snoop: address=0x504 computed tag=1 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+snoop: address=0x500 computed tag=1 computed set=4 bitSets=4 bitsOffsets=6 contains=1
+  set 4 contents:   [debug] tag=1 state=E data=aaaaaaaa | 
+readBus: snooping core 1 result state=2 dataPtr=HAS_DATA
+snoop: address=0x500 computed tag=1 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+CPU Read: aaaaaaaa from 500
+CPU Read: bbbbbbbb from 504
+PASS core0 expected=aaaaaaaa got=aaaaaaaa
+PASS core1 expected=bbbbbbbb got=bbbbbbbb
+
+========== TEST 7: Ping Pong ==========
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] tag=0 state=S data=cafebabe | 
+readBus: snooping core 1 result state=0 dataPtr=NULL
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=600 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 600
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] tag=0 state=S data=cafebabe | 
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=1
+  set 8 contents:   [debug] tag=1 state=E data=1 | tag=0 state=S data=cafebabe | 
+readBus: snooping core 0 result state=2 dataPtr=HAS_DATA
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=600 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 600
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=1
+  set 8 contents:   [debug] tag=1 state=S data=1 | tag=0 state=S data=cafebabe | 
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=1
+  set 8 contents:   [debug] tag=1 state=E data=2 | tag=0 state=S data=cafebabe | 
+readBus: snooping core 1 result state=2 dataPtr=HAS_DATA
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+Evicting dirty line to Next Level
+write: address=600 line state before write=3
+L1 HIT: Wrote 64 bytes data  to address 600
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=1
+  set 8 contents:   [debug] tag=1 state=S data=2 | tag=0 state=S data=cafebabe | 
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=1
+  set 8 contents:   [debug] tag=1 state=E data=3 | tag=0 state=S data=cafebabe | 
+readBus: snooping core 0 result state=2 dataPtr=HAS_DATA
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=600 line state before write=3
+L1 HIT: Wrote 64 bytes data  to address 600
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=1
+  set 8 contents:   [debug] tag=1 state=S data=3 | tag=0 state=S data=cafebabe | 
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=1
+  set 8 contents:   [debug] tag=1 state=E data=4 | tag=0 state=S data=cafebabe | 
+readBus: snooping core 1 result state=2 dataPtr=HAS_DATA
+snoop: address=0x600 computed tag=1 computed set=8 bitSets=4 bitsOffsets=6 contains=0
+  set 8 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+CPU Read: 4 from 600
+PASS expected=00000004 got=4
+
+========== TEST 8: Temporal Locality ==========
+snoop: address=0x700 computed tag=1 computed set=c bitSets=4 bitsOffsets=6 contains=0
+  set 12 contents:   [debug] tag=0 state=S data=22222222 | 
+readBus: snooping core 1 result state=0 dataPtr=NULL
+snoop: address=0x700 computed tag=1 computed set=c bitSets=4 bitsOffsets=6 contains=0
+  set 12 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=700 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 700
+snoop: address=0x700 computed tag=1 computed set=c bitSets=4 bitsOffsets=6 contains=0
+  set 12 contents:   [debug] tag=0 state=S data=22222222 | 
+snoop: address=0x700 computed tag=1 computed set=c bitSets=4 bitsOffsets=6 contains=0
+  set 12 contents:   [debug] EMPTY
+CPU Read: 12345678 from 700
+CPU Read: 12345678 from 700
+CPU Read: 12345678 from 700
+CPU Read: 12345678 from 700
+PASS expected=12345678 got=12345678
+
+========== TEST 9: Read Then Write ==========
+snoop: address=0x800 computed tag=2 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] tag=1 state=M data=cccccccc | 
+readBus: snooping core 1 result state=0 dataPtr=NULL
+snoop: address=0x800 computed tag=2 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] tag=1 state=S data=cccccccc | 
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=800 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 800
+snoop: address=0x800 computed tag=2 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] tag=1 state=M data=cccccccc | 
+snoop: address=0x800 computed tag=2 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] tag=1 state=S data=cccccccc | 
+snoop: address=0x800 computed tag=2 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=2 state=E data=dead0000 | tag=1 state=S data=cccccccc | 
+readBus: snooping core 0 result state=2 dataPtr=HAS_DATA
+snoop: address=0x800 computed tag=2 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] tag=1 state=S data=cccccccc | 
+readBus: snooping core 2 result state=0 dataPtr=NULL
+CPU Read: dead0000 from 800
+write: address=800 line state before write=1
+L1 HIT: Wrote 64 bytes data  to address 800
+snoop: address=0x800 computed tag=2 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=2 state=S data=dead0000 | tag=1 state=M data=cccccccc | 
+snoop: address=0x800 computed tag=2 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] tag=1 state=S data=cccccccc | 
+snoop: address=0x800 computed tag=2 computed set=0 bitSets=4 bitsOffsets=6 contains=1
+  set 0 contents:   [debug] tag=2 state=E data=dead1111 | tag=1 state=S data=cccccccc | 
+readBus: snooping core 0 result state=2 dataPtr=HAS_DATA
+snoop: address=0x800 computed tag=2 computed set=0 bitSets=4 bitsOffsets=6 contains=0
+  set 0 contents:   [debug] tag=1 state=S data=cccccccc | 
+readBus: snooping core 2 result state=0 dataPtr=NULL
+Evicting dirty line to Next Level
+CPU Read: dead1111 from 800
+PASS core1 first read expected=dead0000 got=dead0000
+PASS core1 second read expected=dead1111 got=dead1111
+
+========== TEST 10: Multiple Addresses ==========
+snoop: address=0x900 computed tag=2 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] tag=1 state=S data=aaaaaaaa | 
+readBus: snooping core 1 result state=0 dataPtr=NULL
+snoop: address=0x900 computed tag=2 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+Evicting dirty line to Next Level
+write: address=900 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 900
+snoop: address=0x900 computed tag=2 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] tag=1 state=S data=aaaaaaaa | 
+snoop: address=0x900 computed tag=2 computed set=4 bitSets=4 bitsOffsets=6 contains=0
+  set 4 contents:   [debug] EMPTY
+snoop: address=0x940 computed tag=2 computed set=5 bitSets=4 bitsOffsets=6 contains=0
+  set 5 contents:   [debug] EMPTY
+readBus: snooping core 1 result state=0 dataPtr=NULL
+snoop: address=0x940 computed tag=2 computed set=5 bitSets=4 bitsOffsets=6 contains=0
+  set 5 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=940 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 940
+snoop: address=0x940 computed tag=2 computed set=5 bitSets=4 bitsOffsets=6 contains=0
+  set 5 contents:   [debug] EMPTY
+snoop: address=0x940 computed tag=2 computed set=5 bitSets=4 bitsOffsets=6 contains=0
+  set 5 contents:   [debug] EMPTY
+snoop: address=0x980 computed tag=2 computed set=6 bitSets=4 bitsOffsets=6 contains=0
+  set 6 contents:   [debug] EMPTY
+readBus: snooping core 1 result state=0 dataPtr=NULL
+snoop: address=0x980 computed tag=2 computed set=6 bitSets=4 bitsOffsets=6 contains=0
+  set 6 contents:   [debug] EMPTY
+readBus: snooping core 2 result state=0 dataPtr=NULL
+write: address=980 line state before write=2
+L1 HIT: Wrote 64 bytes data  to address 980
+snoop: address=0x980 computed tag=2 computed set=6 bitSets=4 bitsOffsets=6 contains=0
+  set 6 contents:   [debug] EMPTY
+snoop: address=0x980 computed tag=2 computed set=6 bitSets=4 bitsOffsets=6 contains=0
+  set 6 contents:   [debug] EMPTY
+CPU Read: 11111111 from 900
+CPU Read: 22222222 from 940
+CPU Read: 33333333 from 980
+PASS expected=11111111 got=11111111
+PASS expected=22222222 got=22222222
+PASS expected=33333333 got=33333333
+
+========== STATS ==========
 ========== CORE 0 ==========
 
 === L1 Stats ===
-Total accesses:          5
-Hits:                    1
-Misses:                  4
-Hit rate:                20%
-Miss rate:               80%
-Evictions:               0
+Total accesses:          1b
+Hits:                    b
+Misses:                  10
+Hit rate:                40.7407%
+Miss rate:               59.2593%
+Evictions:               5
 Coherence invalidations: 0
 Coherence downgrades:    0
 
 === L2 Stats ===
-Total accesses:          4
+Total accesses:          10
 Hits:                    0
-Misses:                  4
+Misses:                  10
 Hit rate:                0%
 Miss rate:               100%
 Evictions:               0
@@ -135,39 +355,39 @@ Coherence invalidations: 0
 Coherence downgrades:    0
 
 === L3 Stats ===
-Total accesses:          4
+Total accesses:          10
 Hits:                    0
-Misses:                  4
+Misses:                  10
 Hit rate:                0%
 Miss rate:               100%
 Evictions:               0
-Coherence invalidations: 1
-Coherence downgrades:    2
+Coherence invalidations: 6
+Coherence downgrades:    9
 
-AMAT: 205.6 cycles
+AMAT: 153.333 cycles
 
 === Coherence Overhead ===
-Invalidations received:  1
-Downgrades received:     2
+Invalidations received:  6
+Downgrades received:     9
 Wasted snoops:           0
 Invalidation→Read:       0
 
 ========== CORE 1 ==========
 
 === L1 Stats ===
-Total accesses:          2
-Hits:                    0
-Misses:                  2
-Hit rate:                0%
-Miss rate:               100%
-Evictions:               0
+Total accesses:          a
+Hits:                    1
+Misses:                  9
+Hit rate:                10%
+Miss rate:               90%
+Evictions:               3
 Coherence invalidations: 0
 Coherence downgrades:    0
 
 === L2 Stats ===
-Total accesses:          2
+Total accesses:          9
 Hits:                    0
-Misses:                  2
+Misses:                  9
 Hit rate:                0%
 Miss rate:               100%
 Evictions:               0
@@ -175,63 +395,68 @@ Coherence invalidations: 0
 Coherence downgrades:    0
 
 === L3 Stats ===
-Total accesses:          2
+Total accesses:          9
 Hits:                    0
-Misses:                  2
+Misses:                  9
+Hit rate:                0%
+Miss rate:               100%
+Evictions:               0
+Coherence invalidations: 3
+Coherence downgrades:    5
+
+AMAT: 230.8 cycles
+
+=== Coherence Overhead ===
+Invalidations received:  3
+Downgrades received:     5
+Wasted snoops:           16
+Invalidation→Read:       0
+
+========== CORE 2 ==========
+
+=== L1 Stats ===
+Total accesses:          2
+Hits:                    1
+Misses:                  1
+Hit rate:                50%
+Miss rate:               50%
+Evictions:               0
+Coherence invalidations: 0
+Coherence downgrades:    0
+
+=== L2 Stats ===
+Total accesses:          1
+Hits:                    0
+Misses:                  1
+Hit rate:                0%
+Miss rate:               100%
+Evictions:               0
+Coherence invalidations: 0
+Coherence downgrades:    0
+
+=== L3 Stats ===
+Total accesses:          1
+Hits:                    0
+Misses:                  1
 Hit rate:                0%
 Miss rate:               100%
 Evictions:               0
 Coherence invalidations: 0
 Coherence downgrades:    1
 
-AMAT: 256 cycles
+AMAT: 130 cycles
 
 === Coherence Overhead ===
 Invalidations received:  0
 Downgrades received:     1
-Wasted snoops:           6
+Wasted snoops:           29
 Invalidation→Read:       0
 
-========== CORE 2 ==========
+========== BUS Stats ==========
+Read transactions:   1a
+Write transactions:  13
+Total snoops issued: 34
+Total snoop cycles:  208
+Avg snoop latency:   10 cycles
+Wasted snoop ratio:  121.154%
 
-=== L1 Stats ===
-Total accesses:          0
-Hits:                    0
-Misses:                  0
-Hit rate:                0%
-Miss rate:               0%
-Evictions:               0
-Coherence invalidations: 0
-Coherence downgrades:    0
-
-=== L2 Stats ===
-Total accesses:          0
-Hits:                    0
-Misses:                  0
-Hit rate:                0%
-Miss rate:               0%
-Evictions:               0
-Coherence invalidations: 0
-Coherence downgrades:    0
-
-=== L3 Stats ===
-Total accesses:          0
-Hits:                    0
-Misses:                  0
-Hit rate:                0%
-Miss rate:               0%
-Evictions:               0
-Coherence invalidations: 0
-Coherence downgrades:    0
-
-AMAT: 4 cycles
-
-=== Coherence Overhead ===
-Invalidations received:  0
-Downgrades received:     0
-Wasted snoops:           10
-Invalidation→Read:       0
-
-=== Bus Stats ===
-Read transactions:  6
-Write transactions: 4

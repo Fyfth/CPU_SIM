@@ -91,44 +91,127 @@ int main(){
     Core* core1 = new Core(1, b);
     Core* core2 = new Core(2, b);
     
-    // register L3s with bus
     b->addListener(core0->L3);
     b->addListener(core1->L3);
     b->addListener(core2->L3);
-    
-    // test 1: simple read/write
-    core0->write(0x100, 0xDEADBEEF);
-    core0->read(0x100);
-    
-    // test 2: true sharing
-    // core0 writes, core1 reads same address
-    core0->write(0x200, 0xCAFEBABE);
-    core1->read(0x200);  // should get 0xCAFEBABE
-    
-    // test 3: write contention
-    // core0 and core1 both write same address
-    core0->write(0x300, 0x11111111);
-    core0->printAllCaches("after core0 write 0x11111111");
-    core1->printAllCaches("core1 state after core0 write");
-    core1->write(0x300, 0x22222222);
-    core0->printAllCaches("core0 state after core1 write");  // ← key one
-    core1->printAllCaches("after core1 write 0x22222222");
-    core0->read(0x300);  // should get 0x22222222
-    core0->printAllCaches("core0 state after read");
 
-    // print stats
+    cout << "\n========== TEST 1: Basic Read/Write ==========\n";
+    // core0 writes then reads same address
+    core0->write(0x100, 0xDEADBEEF);
+    int r1 = core0->read(0x100);
+    cout << (r1 == (int)0xDEADBEEF ? "PASS" : "FAIL") 
+         << " expected=deadbeef got=" << hex << r1 << "\n";
+
+    cout << "\n========== TEST 2: Same Core Write Twice ==========\n";
+    // overwrite same address, should get new value
+    core0->write(0x100, 0x11111111);
+    int r2 = core0->read(0x100);
+    cout << (r2 == (int)0x11111111 ? "PASS" : "FAIL")
+         << " expected=11111111 got=" << hex << r2 << "\n";
+
+    cout << "\n========== TEST 3: Cross-Core Read ==========\n";
+    // core0 writes, core1 reads
+    core0->write(0x200, 0xCAFEBABE);
+    int r3 = core1->read(0x200);
+    cout << (r3 == (int)0xCAFEBABE ? "PASS" : "FAIL")
+         << " expected=cafebabe got=" << hex << r3 << "\n";
+
+    cout << "\n========== TEST 4: Write Contention ==========\n";
+    // core0 writes, core1 overwrites, core0 reads new value
+    core0->write(0x300, 0x11111111);
+    core1->write(0x300, 0x22222222);
+    int r4 = core0->read(0x300);
+    cout << (r4 == (int)0x22222222 ? "PASS" : "FAIL")
+         << " expected=22222222 got=" << hex << r4 << "\n";
+
+    cout << "\n========== TEST 5: Three Core Contention ==========\n";
+    // all three cores write same address, last writer wins
+    core0->write(0x400, 0xAAAAAAAA);
+    core1->write(0x400, 0xBBBBBBBB);
+    core2->write(0x400, 0xCCCCCCCC);
+    int r5a = core0->read(0x400);
+    int r5b = core1->read(0x400);
+    int r5c = core2->read(0x400);
+    cout << (r5a == (int)0xCCCCCCCC ? "PASS" : "FAIL")
+         << " core0 expected=cccccccc got=" << hex << r5a << "\n";
+    cout << (r5b == (int)0xCCCCCCCC ? "PASS" : "FAIL")
+         << " core1 expected=cccccccc got=" << hex << r5b << "\n";
+    cout << (r5c == (int)0xCCCCCCCC ? "PASS" : "FAIL")
+         << " core2 expected=cccccccc got=" << hex << r5c << "\n";
+
+    cout << "\n========== TEST 6: False Sharing ==========\n";
+    // different addresses but same cache line
+    // 0x500 and 0x504 are 4 bytes apart, same 64 byte cache line
+    core0->write(0x500, 0xAAAAAAAA);
+    core1->write(0x504, 0xBBBBBBBB);
+    int r6a = core0->read(0x500);
+    int r6b = core1->read(0x504);
+    cout << (r6a == (int)0xAAAAAAAA ? "PASS" : "FAIL")
+         << " core0 expected=aaaaaaaa got=" << hex << r6a << "\n";
+    cout << (r6b == (int)0xBBBBBBBB ? "PASS" : "FAIL")
+         << " core1 expected=bbbbbbbb got=" << hex << r6b << "\n";
+
+    cout << "\n========== TEST 7: Ping Pong ==========\n";
+    // cores alternately write same address
+    // tests repeated invalidation
+    core0->write(0x600, 0x00000001);
+    core1->write(0x600, 0x00000002);
+    core0->write(0x600, 0x00000003);
+    core1->write(0x600, 0x00000004);
+    int r7 = core0->read(0x600);
+    cout << (r7 == 0x00000004 ? "PASS" : "FAIL")
+         << " expected=00000004 got=" << hex << r7 << "\n";
+
+    cout << "\n========== TEST 8: Temporal Locality ==========\n";
+    // same address accessed many times
+    // after first miss should be all hits
+    core0->write(0x700, 0x12345678);
+    core0->read(0x700);   // miss
+    core0->read(0x700);   // should hit L1
+    core0->read(0x700);   // should hit L1
+    int r8 = core0->read(0x700);
+    cout << (r8 == (int)0x12345678 ? "PASS" : "FAIL")
+         << " expected=12345678 got=" << hex << r8 << "\n";
+
+    cout << "\n========== TEST 9: Read Then Write ==========\n";
+    // core0 reads (gets EXCLUSIVE)
+    // core1 reads same (both SHARED)
+    // core0 writes (invalidates core1)
+    // core1 reads again (should get new value)
+    core0->write(0x800, 0xDEAD0000);
+    int r9a = core1->read(0x800);   // core1 gets SHARED copy
+    core0->write(0x800, 0xDEAD1111); // core0 invalidates core1
+    int r9b = core1->read(0x800);   // core1 should get new value
+    cout << (r9a == (int)0xDEAD0000 ? "PASS" : "FAIL")
+         << " core1 first read expected=dead0000 got=" << hex << r9a << "\n";
+    cout << (r9b == (int)0xDEAD1111 ? "PASS" : "FAIL")
+         << " core1 second read expected=dead1111 got=" << hex << r9b << "\n";
+
+    cout << "\n========== TEST 10: Multiple Addresses ==========\n";
+    // make sure different addresses don't interfere
+    core0->write(0x900, 0x11111111);
+    core0->write(0x940, 0x22222222);
+    core0->write(0x980, 0x33333333);
+    int r10a = core0->read(0x900);
+    int r10b = core0->read(0x940);
+    int r10c = core0->read(0x980);
+    cout << (r10a == (int)0x11111111 ? "PASS" : "FAIL")
+         << " expected=11111111 got=" << hex << r10a << "\n";
+    cout << (r10b == (int)0x22222222 ? "PASS" : "FAIL")
+         << " expected=22222222 got=" << hex << r10b << "\n";
+    cout << (r10c == (int)0x33333333 ? "PASS" : "FAIL")
+         << " expected=33333333 got=" << hex << r10c << "\n";
+
+    cout << "\n========== STATS ==========\n";
     core0->printStats();
     core1->printStats();
     core2->printStats();
+    b->printStats();
 
-
-    // bus level stats
-    cout << "=== Bus Stats ===\n";
-    cout << "Read transactions:  " << b->readTransactions << "\n";
-    cout << "Write transactions: " << b->writeTransactions << "\n";
-    
     delete core0;
     delete core1;
     delete core2;
     delete b;
+    
+    return 0;
 }
