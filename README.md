@@ -19,7 +19,8 @@ A multi-core cache hierarchy simulator implementing the **MESI coherence protoco
 
 ## Cache Structure
 
-![Cache Structure](cache_tree.png)
+<img width="1781" height="1780" alt="graph" src="https://github.com/user-attachments/assets/58e93321-4750-4910-8585-3a95edcd4ed6" />
+
 
 Each cache level is a **set-associative cache** backed by an LRU eviction policy.  
 Every set is an `LRUCache` — a doubly linked list paired with a hash map for O(1) lookup and O(1) LRU updates.  
@@ -36,6 +37,7 @@ Each node in the list is a `CacheLine` struct holding a 64-byte data block, a ta
 ## Cache Hierarchy
 
 ![Cache Hierarchy](cache_hierarchy.png)
+<img width="2501" height="2321" alt="core" src="https://github.com/user-attachments/assets/904411fc-cdac-4952-9410-9a9ca153bd47" />
 
 Each core owns a **private** L1, L2, and L3. All L3s connect to a shared snooping bus.  
 On a read miss, the request cascades down: L1 → L2 → L3 → Bus → RAM.  
