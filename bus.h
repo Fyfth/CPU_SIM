@@ -25,7 +25,8 @@ class bus{
         int readTransactions = 0;
         int writeTransactions = 0;
         int totalSnoopsIssued = 0;
-        int wastedSnoops = 0;
+        int wastedSnoops = 0;           // snoops issued but returned INVALID
+        int bloomPrevented = 0;         // snoops skipped by bloom filter
 }; 
 
 

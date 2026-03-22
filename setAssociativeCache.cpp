@@ -52,10 +52,6 @@ bool setAssociativeCache::contains(uint32_t address){
 }
 
 void setAssociativeCache::ramWrite(uint32_t address, uint8_t* data){
-    uint32_t val = 0;
-    for(int i = 0; i < 4; i++) val |= ((uint32_t)data[i] << (i*8));
-    cout << "ramWrite: addr=0x" << hex << address 
-         << " val=0x" << val << dec << "\n";
     for (int i = 0; i < 64; i++) {
         RAM[address + i] = data[i];
     }
@@ -74,11 +70,6 @@ std::vector<uint8_t> setAssociativeCache::ramRead(uint32_t address){
             blockData[i] = 0;
         }
     }
-    // debug — print what RAM has at this address
-    uint32_t val = 0;
-    for(int i = 0; i < 4; i++) val |= ((uint32_t)blockData[i] << (i*8));
-    cout << "ramRead: addr=0x" << hex << blockStart 
-         << " val=0x" << val << dec << "\n";
     return blockData;
 }
 
@@ -87,6 +78,11 @@ std::vector<uint8_t> setAssociativeCache::ramRead(uint32_t address){
 void setAssociativeCache::evictIfNeeded(int set){
     if(sets[set].isFull()){//current set is full
         evictions++;
+
+        // periodic bloom filter reset for L3
+        if(nextLevel == nullptr && evictions % 50 == 0){
+            bloomFilter.reset();
+        }
         CacheLine temp  = sets[set].peek(); 
         uint32_t victimTag = temp.tag;
         uint32_t victimAddress = ((victimTag)<<(bitsOffsets + bitSets)) | (set << bitsOffsets);
@@ -136,6 +132,11 @@ void setAssociativeCache::writeBlock(uint32_t address, uint8_t* dataptr, STATE n
         sets[setIdx].put(tagValue, dataptr, newState);
     }
 
+    // bloom filter
+    if(nextLevel == nullptr){
+        bloomFilter.insert(address);  // eviction
+    }
+
 }
 
 
@@ -176,12 +177,24 @@ uint8_t* setAssociativeCache::readBlock (uint32_t address){//fetch the block to 
 
     if(sets[setIdx].contains(tagValue)){
         CacheLine* line = sets[setIdx].get(tagValue);
+        // // debug
+        // uint32_t val = 0;
+        // for(int i=0;i<4;i++) val |= ((uint32_t)line->data[i]<<(i*8));
+        // cout << "readBlock: addr=0x" << hex << address
+        //      << " state=" << line->state
+        //      << " data=0x" << val << dec << "\n";
         
         if(line->state == INVALID){
             misses++;  // INVALID = treat as miss, fall through to fetch
         } else {
             // real hit
             hits++;
+
+            //bloom filter 
+            if(nextLevel == nullptr){
+                bloomFilter.insert(address);  //also insert on hit -> bloom filter reset
+            }
+            
             if(prevLevel == nullptr)       totalCycles += L1_HIT_CYCLES;
             else if(nextLevel == nullptr)  totalCycles += L3_HIT_CYCLES;
             else                           totalCycles += L2_HIT_CYCLES;
@@ -219,6 +232,10 @@ uint8_t* setAssociativeCache::readBlock (uint32_t address){//fetch the block to 
     //miss, evict, and add
     evictIfNeeded(setIdx); 
     sets[setIdx].put(tagValue,fetchedData.data(), initState); 
+    if(nextLevel == nullptr){  // I am L3
+        bloomFilter.insert(address);  // tell bloom filter we have this line
+    }
+
     return sets[setIdx].get(tagValue)->data; //new data
 }
 
@@ -261,21 +278,21 @@ pair<STATE, uint8_t*> setAssociativeCache::snoop(uint32_t address, int type){// 
     //assume only L3 calls this -> inclusive writeback
     int tagValue = tag(address); 
     int setIdx = set(address); 
-    // cout << "snoop: address=0x" << hex << address 
-    //      << " computed tag=" << tagValue 
-    //      << " computed set=" << setIdx 
-    //      << " bitSets=" << bitSets
-    //      << " bitsOffsets=" << bitsOffsets
-    //      << " contains=" << sets[setIdx].contains(tagValue) 
-    //      << dec << "\n";
-    
-    // print what's actually in that set
-    // cout << "  set " << setIdx << " contents: ";
-    //sets[setIdx].printContents("debug");
+    cout << "SNOOP: addr=0x" << hex << address 
+         << " type=" << type
+         << " core_id=" << core_id
+         << " contains=" << sets[setIdx].contains(tagValue) << dec << "\n";
 
-    if(!sets[setIdx].contains(tagValue)){//check first 
+    if(!sets[setIdx].contains(tagValue)){
         wastedSnoops++;
-        return {INVALID, nullptr}; 
+        
+        // even if L3 doesn't have it, L1/L2 might have SHARED copies
+        // on write snoop, kill them too
+        if(type == 1 && prevLevel != nullptr){
+            prevLevel->invalidateUp(address);
+        }
+        
+        return {INVALID, nullptr};
     }
     CacheLine* line = sets[setIdx].get(tagValue);//fresh grab
     STATE original_state = line->state;
@@ -327,10 +344,6 @@ void setAssociativeCache::flushToMe(uint32_t address){
 
     if(sets[setIdx].contains(tagValue)){
         CacheLine* line = sets[setIdx].get(tagValue);
-        cout << "invalidateUp: level=" 
-             << (prevLevel == nullptr ? "L1" : nextLevel == nullptr ? "L3" : "L2")
-             << " addr=0x" << hex << address
-             << " state=" << line->state << dec << "\n";
         if(line->state == MODIFIED){
             if(nextLevel != nullptr){
                 nextLevel->writeBlock(address, line->data);

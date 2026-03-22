@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cmath>
 #include "lru.h" 
+#include "bloomfilter.h"
 
 class bus;
 class setAssociativeCache {
@@ -20,12 +21,15 @@ class setAssociativeCache {
         int bitSets;
         bus* busPtr = nullptr;
         int core_id = -1;
-        static std::unordered_map<uint32_t, uint8_t> RAM; 
+    
 
        
     
     public: 
+        static std::unordered_map<uint32_t, uint8_t> RAM; 
         std::vector<LRUCache> sets; 
+        BloomFilter bloomFilter; //one per L3
+
         // performance counters
         int hits = 0;
         int misses = 0;

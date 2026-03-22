@@ -14,10 +14,22 @@ void constrainedRandomTest(Core* cores[], int numCores, int numOps, int seed, Te
     for(int i = 0; i < numOps; i++){ 
         int coreId    = rand() % numCores;
         int op        = rand() % 2;
-        uint32_t addr = ((rand() % 16) * 0x100);
+        //Test 1: show MESI working under stress -> PASS
+        //uint32_t addr = ((rand() % 16) * 0x100); //--> HAMMER same SET -> High coherence trffic, low wasted snoops
+        
+        //Test 2: Large pool, sparse sharing
+        uint32_t addr = ((rand() % 256) * 0x100); //--> high wasted snoops!
+
+        //Test 3: Very Sequential -> intuition for Prefetcher 
+        
         uint32_t data = (uint32_t)(rand() & 0xFFFFFFF0);
 
         if(op == 1){
+            if(addr == 0x400){
+                cout << "WRITE 0x400 = 0x" << hex << data 
+                    << " by core=" << coreId 
+                    << " iter=" << dec << i << "\n";
+            }
             cores[coreId]->write(addr, data);
             ref[addr] = data;
         } else {
@@ -40,6 +52,7 @@ void constrainedRandomTest(Core* cores[], int numCores, int numOps, int seed, Te
                      << " got=0x" << got << dec << "\n";
             }
         }
+        
     }
 }
 

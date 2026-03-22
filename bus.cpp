@@ -7,6 +7,7 @@
 #include <iostream>
 #include <list>
 #include <cstring>
+#include "bloomfilter.h"
 
 using namespace std;
 
@@ -25,6 +26,14 @@ pair<bool,uint8_t*> bus::readBus(uint32_t address, int core_id){//the bus SHOULD
         }
         totalSnoopsIssued++;
         totalSnoopCycles += BUS_CYCLES; // each snoop cycle costs
+
+        // bloom filter check BEFORE snooping
+        if(!listeners[i]->bloomFilter.mightContain(address)){
+            bloomPrevented++;
+            listeners[i]->bloomFilter.wastedSnoopsPrevented++;
+            continue;  // skip snoop entirely
+        }
+
         pair<STATE, uint8_t*> snoopResult = listeners[i]->snoop(address,0); 
         
         if(snoopResult.first == INVALID){
@@ -48,6 +57,14 @@ void bus::writeBus(uint32_t address, int core_id){
         }
         totalSnoopsIssued++;
         totalSnoopCycles += BUS_CYCLES;
+
+        // bloom filter check
+        if(!listeners[i]->bloomFilter.mightContain(address)){
+            bloomPrevented++;
+            listeners[i]->bloomFilter.wastedSnoopsPrevented++;
+            continue;
+        }
+
         auto result = listeners[i]->snoop(address,1);
         if(result.first == INVALID){
             wastedSnoops++;
@@ -67,13 +84,21 @@ void bus::printStats(){
              << (float)totalSnoopCycles/totalSnoopsIssued 
              << " cycles\n";
     }
-    cout << "Wasted snoop ratio:  ";
+    
     // sum wasted snoops across all listeners
     cout << "Wasted snoops:       " << wastedSnoops << "\n";
     if(totalSnoopsIssued > 0){
-        cout << "Wasted snoop ratio:  " 
-             << (float)wastedSnoops/totalSnoopsIssued * 100 
-             << "%\n";
+        cout << "Wasted snoop ratio:  " <<(float)wastedSnoops/totalSnoopsIssued * 100 << "%\n";
     }
+    int totalPrevented = 0;
+    for(auto l : listeners) totalPrevented += l->bloomFilter.wastedSnoopsPrevented;
+
+    cout << "Snoops issued:          " << totalSnoopsIssued << "\n";
+    cout << "Snoops prevented:       " << bloomPrevented << "\n";
+    cout << "Snoops issued+prevented:" << totalSnoopsIssued + bloomPrevented << "\n";
+    cout << "Wasted (false positive):" << wastedSnoops << "\n";
+    cout << "Bloom filter savings:   " 
+        << (float)bloomPrevented/(totalSnoopsIssued + bloomPrevented) * 100
+        << "% of total bus traffic\n";
 }
 

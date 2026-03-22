@@ -16,35 +16,65 @@ void Core::write(uint32_t address, uint32_t data){
     STATE currentState = INVALID;
     if(L1->contains(address)){
         currentState = L1->getState(address);
-    }
-    else if(L2->contains(address)){
+        if(address == 0x400)
+            cout << "Core " << core_id << " writing 0x400"
+                 << " L1 currentState=" << currentState << "\n";
+    } else if(L2->contains(address)){
         currentState = L2->getState(address);
-    }
-    else if(L3->contains(address)){
+        if(address == 0x400)
+            cout << "Core " << core_id << " writing 0x400"
+                 << " L2 currentState=" << currentState << "\n";
+    } else if(L3->contains(address)){
         currentState = L3->getState(address);
+        if(address == 0x400)
+            cout << "Core " << core_id << " writing 0x400"
+                 << " L3 currentState=" << currentState << "\n";
+    } else {
+        if(address == 0x400)
+            cout << "Core " << core_id << " writing 0x400"
+                 << " NOT IN ANY LEVEL\n";
     }
-    
-    // step 1: bring data in first (readBlock inside write())
+
+    // STEP 1: write to L1
     L1->write(address, data);
-    
-    // step 2: THEN invalidate others
-    // but only if we didn't already own it exclusively
-    if(currentState != MODIFIED){
-        b->writeBus(address, core_id);
-    }
-    
-    // STEP 3: push to L2/L3 for inclusive design
+
+    // STEP 2: push to L2/L3 AND RAM immediately
     CacheLine* l1Line = L1->sets[L1->set(address)].get(L1->tag(address));
     if(l1Line != nullptr){
         L2->writeBlock(address, l1Line->data, EXCLUSIVE);
         L3->writeBlock(address, l1Line->data, EXCLUSIVE);
+        // keep RAM in sync
+        for(int i = 0; i < 64; i++){
+            setAssociativeCache::RAM[address + i] = l1Line->data[i];
+        }
+    }
+
+    // STEP 3: invalidate other cores
+    if(currentState != MODIFIED){
+        b->writeBus(address, core_id);
     }
 }
 
 int Core::read(uint32_t address){
+    // check all levels before reading
+    if(L1->contains(address)){
+        STATE s = L1->getState(address);
+        uint32_t val = 0;
+        CacheLine* l = L1->sets[L1->set(address)].get(L1->tag(address));
+        for(int i=0;i<4;i++) val |= ((uint32_t)l->data[i]<<(i*8));
+        cout << "Core " << core_id << " read 0x" << hex << address
+             << " L1 has it state=" << s << " data=0x" << val << dec << "\n";
+    }
+    if(L3->contains(address)){
+        STATE s = L3->getState(address);
+        uint32_t val = 0;
+        CacheLine* l = L3->sets[L3->set(address)].get(L3->tag(address));
+        for(int i=0;i<4;i++) val |= ((uint32_t)l->data[i]<<(i*8));
+        cout << "Core " << core_id << " read 0x" << hex << address
+             << " L3 has it state=" << s << " data=0x" << val << dec << "\n";
+    }
     return L1->read(address);
 }
-
 void Core::printStats(){
     cout << "========== CORE " << core_id << " ==========\n\n";
     

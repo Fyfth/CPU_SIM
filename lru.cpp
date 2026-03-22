@@ -37,7 +37,7 @@ void LRUCache::put(uint32_t key, uint8_t value[64], STATE state){
         auto it = cacheMap[key];
         items.splice(items.begin(), items, it);
         memcpy(it->data, value, 64);
-        it->state = MODIFIED;
+        it->state = state;
 
         
         return; 
