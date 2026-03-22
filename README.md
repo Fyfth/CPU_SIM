@@ -54,7 +54,7 @@ On a write, the requesting core invalidates all other copies via the bus before 
 
 ---
 
-## API
+## Fuctions
 
 ### `bus.h`
 | Function | Description |
